@@ -11,7 +11,6 @@ from dotenv import load_dotenv
 from tests.integration.integration_steps.cdf_steps import remove_time_series_data, push_time_series_to_cdf, create_subscription_in_cdf
 from tests.integration.integration_steps.fabric_steps import get_ts_delta_table
 from tests.integration.integration_steps.time_series_generation import generate_timeseries_set
-from unittest.mock import Mock
 
 load_dotenv()
 
