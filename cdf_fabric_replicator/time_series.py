@@ -136,7 +136,7 @@ class TimeSeriesReplicator(Extractor):
         metadata = ts.metadata if len(ts.metadata) > 0 else {"source": "cdf_fabric_replicator"}
         df = pd.DataFrame(np.array([[ts.external_id, ts.name, ts.description if ts.description else "" , ts.is_string, ts.is_step, ts.unit, metadata, asset_xid]]), columns=["externalId", "name", "description", "isString", "isStep", "unit", "metadata", "assetExternalId"])
         df = df.dropna()
-        self.logger.info (f"Writing {ts.external_id} to '{subscription.lakehouse_abfss_path_ts}' table...")
+        logging.info (f"Writing {ts.external_id} to '{subscription.lakehouse_abfss_path_ts}' table...")
         if not df.empty:
             self.write_pd_to_deltalake(subscription.lakehouse_abfss_path_ts, df)
         self.ts_cache[update.upserts.external_id] = 1

@@ -13,7 +13,7 @@ def generate_datapoints(num_points: int, days_ago_for_time_range_start = 2) -> l
     if (num_points <= 0):
         raise ValueError("Number of data points must be greater than 0")
     datapoints = []
-    current_time = datetime.datetime.utcnow() - datetime.timedelta(days=days_ago_for_time_range_start)
+    current_time = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=days_ago_for_time_range_start)
 
     for _ in range(num_points):
         timestamp = current_time
@@ -35,7 +35,7 @@ def generate_timeseries_set(generation_args: TimeSeriesGeneratorArgs) -> list[Ti
 def generate_timeseries(external_id: str, num_data_points: int) -> TimeSeries:
     timeseries = TimeSeries(
         external_id=external_id,
-        name= f"{external_id}: testing historical values",
+        name=external_id,
         is_string=False,
         metadata={"source": "carbon-sdk"},
         is_step=False,

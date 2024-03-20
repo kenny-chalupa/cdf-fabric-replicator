@@ -1,14 +1,29 @@
-import pytest
 import os
-from dotenv import load_dotenv
+import pytest
+from azure.identity import DefaultAzureCredential
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import OAuthClientCredentials
-from azure.identity import DefaultAzureCredential
-from tests.integration.integration_steps.cdf_steps import remove_time_series_data
-from tests.integration.integration_steps.time_series_generation import generate_datapoints, generate_timeseries_set
+from cognite.extractorutils.base import CancellationToken
+from cognite.extractorutils.metrics import safe_get
+from cdf_fabric_replicator.metrics import Metrics
+from cdf_fabric_replicator.time_series import TimeSeriesReplicator
+from dotenv import load_dotenv
+from tests.integration.integration_steps.cdf_steps import remove_time_series_data, push_time_series_to_cdf, create_subscription_in_cdf
 from tests.integration.integration_steps.fabric_steps import get_ts_delta_table
+from tests.integration.integration_steps.time_series_generation import generate_timeseries_set
+from unittest.mock import Mock
 
 load_dotenv()
+
+@pytest.fixture(scope="function")
+def test_replicator():
+    stop_event = CancellationToken()
+    replicator = TimeSeriesReplicator(metrics=safe_get(Metrics), stop_event=stop_event)
+    replicator._initial_load_config(override_path=os.environ["TEST_CONFIG_PATH"])
+    replicator.cognite_client = replicator.config.cognite.get_cognite_client(replicator.name)
+    replicator._load_state_store()
+    yield replicator
+    os.remove("states.json")
 
 @pytest.fixture(scope="session")
 def cognite_client():
@@ -27,6 +42,7 @@ def cognite_client():
             credentials=credentials,
         )
     )
+
 @pytest.fixture(scope="session")
 def azure_credential():
     return DefaultAzureCredential()
@@ -40,6 +56,11 @@ def lakehouse_timeseries_path(azure_credential):
 
 @pytest.fixture()
 def time_series(request, cognite_client):
+    sub_name = "testSubscription"
     timeseries_set = generate_timeseries_set(request.param)
+    remove_time_series_data(timeseries_set, cognite_client)
+    push_time_series_to_cdf(timeseries_set, cognite_client)
+    create_subscription_in_cdf(timeseries_set, sub_name, cognite_client)
     yield timeseries_set
     remove_time_series_data(timeseries_set, cognite_client)
+    cognite_client.time_series.subscriptions.delete(sub_name)
