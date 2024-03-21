@@ -30,10 +30,10 @@ subscriptions:
     - external_id: testSubscription
       partitions:
           - 0
-      lakehouse_abfss_path_dps: ${LAKEHOUSE_BASE_URL}/timeseries
-      lakehouse_abfss_path_ts: ${LAKEHOUSE_BASE_URL}/timeseriesmetadata
+      lakehouse_abfss_path_dps: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/testtimeseries2
+      lakehouse_abfss_path_ts: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/testtimeseriesmetadata
 
 # sync data model
 data_modeling:
     - space: cc_plant
-      lakehouse_abfss_prefix: ${LAKEHOUSE_BASE_URL}
+      lakehouse_abfss_prefix: ${LAKEHOUSE_ABFSS_PREFIX}

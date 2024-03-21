@@ -15,9 +15,11 @@ def read_deltalake_timeseries(timeseries_path:str, credential: DefaultAzureCrede
     return df
 
 def prepare_lakehouse_dataframe_for_comparison(dataframe, external_id):
-    local_tz = tz.tzlocal()
     dataframe = dataframe.loc[dataframe["externalId"] == external_id]
-    dataframe['timestamp'] = dataframe['timestamp'].dt.tz_localize(local_tz).dt.tz_convert('UTC')
+    if dataframe['timestamp'].dt.tz is None:
+        local_tz = tz.tzlocal()
+        dataframe['timestamp'] = dataframe['timestamp'].dt.tz_localize(local_tz)
+    dataframe['timestamp'] = dataframe['timestamp'].dt.tz_convert('UTC')
     dataframe['timestamp'] = dataframe['timestamp'].dt.round('s')
     return dataframe
 
