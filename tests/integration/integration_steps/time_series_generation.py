@@ -35,7 +35,7 @@ def generate_timeseries_set(generation_args: TimeSeriesGeneratorArgs) -> list[Ti
 def generate_timeseries(external_id: str, num_data_points: int) -> TimeSeries:
     timeseries = TimeSeries(
         external_id=external_id,
-        name=external_id,
+        name=f"{external_id}: testing historical values",
         is_string=False,
         metadata={"source": "carbon-sdk"},
         is_step=False,
