@@ -5,6 +5,8 @@ from dateutil import tz
 import pandas as pd
 from pandas.testing import assert_frame_equal
 
+TIMESTAMP_COLUMN = "timestamp"
+
 def get_ts_delta_table(credential: DefaultAzureCredential, lakehouse_timeseries_path: str):
     token = credential.get_token("https://storage.azure.com/.default")
     return DeltaTable(lakehouse_timeseries_path,storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"},)
@@ -16,16 +18,16 @@ def read_deltalake_timeseries(timeseries_path:str, credential: DefaultAzureCrede
 
 def prepare_lakehouse_dataframe_for_comparison(dataframe, external_id):
     dataframe = dataframe.loc[dataframe["externalId"] == external_id]
-    if dataframe['timestamp'].dt.tz is None:
+    if dataframe[TIMESTAMP_COLUMN].dt.tz is None:
         local_tz = tz.tzlocal()
-        dataframe['timestamp'] = dataframe['timestamp'].dt.tz_localize(local_tz)
-    dataframe['timestamp'] = dataframe['timestamp'].dt.tz_convert('UTC')
-    dataframe['timestamp'] = dataframe['timestamp'].dt.round('s')
+        dataframe[TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.tz_localize(local_tz)
+    dataframe[TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.tz_convert('UTC')
+    dataframe[TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.round('s')
     return dataframe
 
 def prepare_test_dataframe_for_comparison(dataframe):
-    dataframe['timestamp'] = pd.to_datetime(dataframe['timestamp'])
-    dataframe['timestamp'] = dataframe['timestamp'].dt.round('s')
+    dataframe[TIMESTAMP_COLUMN] = pd.to_datetime(dataframe[TIMESTAMP_COLUMN])
+    dataframe[TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.round('s')
     return dataframe
 
 def assert_timeseries_data_in_fabric(external_id, data_points, timeseries_path, azure_credential: DefaultAzureCredential):
