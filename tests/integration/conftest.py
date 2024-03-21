@@ -48,7 +48,7 @@ def azure_credential():
 
 @pytest.fixture(scope="session")
 def lakehouse_timeseries_path(azure_credential):
-    lakehouse_timeseries_path = os.environ["LAKEHOUSE_ABFSS_PREFIX"] + "/Tables/" + os.environ["LAKEHOUSE_TABLE_NAME"]
+    lakehouse_timeseries_path = os.environ["LAKEHOUSE_ABFSS_PREFIX"] + "/Tables/" + os.environ["DPS_TABLE_NAME"]
     yield lakehouse_timeseries_path
     delta_table = get_ts_delta_table(azure_credential, lakehouse_timeseries_path)
     delta_table.delete()
