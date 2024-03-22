@@ -7,7 +7,7 @@ from pandas.testing import assert_frame_equal
 
 TIMESTAMP_COLUMN = "timestamp"
 
-def get_ts_delta_table(credential: DefaultAzureCredential, lakehouse_timeseries_path: str):
+def get_ts_delta_table(credential: DefaultAzureCredential, lakehouse_timeseries_path: str) -> DeltaTable:
     token = credential.get_token("https://storage.azure.com/.default")
     return DeltaTable(lakehouse_timeseries_path,storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"},)
 
@@ -16,19 +16,19 @@ def read_deltalake_timeseries(timeseries_path:str, credential: DefaultAzureCrede
     df = delta_table.to_pandas()
     return df
 
-def prepare_lakehouse_dataframe_for_comparison(dataframe, external_id):
+def prepare_lakehouse_dataframe_for_comparison(dataframe, external_id) -> pd.DataFrame:
     dataframe = dataframe.loc[dataframe["externalId"] == external_id]
     dataframe[TIMESTAMP_COLUMN] = pd.to_datetime(dataframe[TIMESTAMP_COLUMN])
     if dataframe[TIMESTAMP_COLUMN].dt.tz is None:
         local_tz = tz.tzlocal()
         dataframe[TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.tz_localize(local_tz)
     dataframe[TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.tz_convert('UTC')
-    dataframe[TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.round('s')
+    dataframe[TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.round('s') # round to seconds to avoid microsecond differences
     return dataframe
 
-def prepare_test_dataframe_for_comparison(dataframe):
+def prepare_test_dataframe_for_comparison(dataframe) -> pd.DataFrame:
     dataframe[TIMESTAMP_COLUMN] = pd.to_datetime(dataframe[TIMESTAMP_COLUMN])
-    dataframe[TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.round('s')
+    dataframe[TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.round('s') # round to seconds to avoid microsecond differences
     return dataframe
 
 def assert_timeseries_data_in_fabric(external_id, data_points, timeseries_path, azure_credential: DefaultAzureCredential):
