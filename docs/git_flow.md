@@ -37,4 +37,4 @@ This defines the expected git flow for branching and PRs between our [forked rep
 
 ## Diagram of Repo Changes Proposal
 
-![Diagram of Repo Changes Proposal](image.png)
+![Diagram of Repo Changes Proposal](./assets/diagram_examples.png)
