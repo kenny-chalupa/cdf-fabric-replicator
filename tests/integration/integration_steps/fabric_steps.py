@@ -20,14 +20,14 @@ def prepare_lakehouse_dataframe_for_comparison(dataframe, external_id):
     dataframe = dataframe.loc[dataframe["externalId"] == external_id]
     if dataframe[TIMESTAMP_COLUMN].dt.tz is None:
         local_tz = tz.tzlocal()
-        dataframe[TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.tz_localize(local_tz)
-    dataframe[TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.tz_convert('UTC')
-    dataframe[TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.round('s')
+        dataframe.loc[:,TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.tz_localize(local_tz)
+    dataframe.loc[:,TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.tz_convert('UTC')
+    dataframe.loc[:,TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.round('s')
     return dataframe
 
 def prepare_test_dataframe_for_comparison(dataframe):
-    dataframe[TIMESTAMP_COLUMN] = pd.to_datetime(dataframe[TIMESTAMP_COLUMN])
-    dataframe[TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.round('s')
+    dataframe.loc[:,TIMESTAMP_COLUMN] = pd.to_datetime(dataframe[TIMESTAMP_COLUMN])
+    dataframe.loc[:,TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.round('s')
     return dataframe
 
 def assert_timeseries_data_in_fabric(external_id, data_points, timeseries_path, azure_credential: DefaultAzureCredential):
