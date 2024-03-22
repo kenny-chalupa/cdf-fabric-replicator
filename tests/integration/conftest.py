@@ -1,5 +1,6 @@
 import os
 import pytest
+from unittest.mock import Mock
 from azure.identity import DefaultAzureCredential
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import OAuthClientCredentials
@@ -21,6 +22,7 @@ def test_replicator():
     replicator._initial_load_config(override_path=os.environ["TEST_CONFIG_PATH"])
     replicator.cognite_client = replicator.config.cognite.get_cognite_client(replicator.name)
     replicator._load_state_store()
+    replicator.logger = Mock()
     yield replicator
     os.remove("states.json")
 
