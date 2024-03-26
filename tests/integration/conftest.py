@@ -8,10 +8,13 @@ from cognite.extractorutils.base import CancellationToken
 from cognite.extractorutils.metrics import safe_get
 from cdf_fabric_replicator.metrics import Metrics
 from cdf_fabric_replicator.time_series import TimeSeriesReplicator
+from cdf_fabric_replicator.extractor import CdfFabricExtractor
 from dotenv import load_dotenv
 from tests.integration.integration_steps.cdf_steps import remove_time_series_data, push_time_series_to_cdf, create_subscription_in_cdf
-from tests.integration.integration_steps.fabric_steps import get_ts_delta_table
-from tests.integration.integration_steps.time_series_generation import generate_timeseries_set
+from tests.integration.integration_steps.fabric_steps import get_ts_delta_table, write_timeseries_data_to_fabric, remove_time_series_data_from_fabric
+from tests.integration.integration_steps.time_series_generation import generate_timeseries_set, generate_raw_timeseries_set, generate_timeseries
+from cognite.client.data_classes import TimeSeries
+import pandas as pd
 
 load_dotenv()
 
@@ -25,6 +28,20 @@ def test_replicator():
     replicator.logger = Mock()
     yield replicator
     os.remove("states.json")
+
+
+@pytest.fixture(scope="function")
+def test_extractor():
+    stop_event = CancellationToken()
+    exatractor = CdfFabricExtractor(stop_event=stop_event)
+    exatractor._initial_load_config(override_path=os.environ["TEST_CONFIG_PATH"])
+    exatractor.client = exatractor.config.cognite.get_cognite_client(exatractor.name)
+    exatractor.cognite_client = exatractor.config.cognite.get_cognite_client(exatractor.name)
+    exatractor._load_state_store()
+    exatractor.logger = Mock()
+    yield exatractor
+    os.remove("states.json")
+
 
 @pytest.fixture(scope="session")
 def cognite_client():
@@ -65,3 +82,23 @@ def time_series(request, cognite_client):
     yield timeseries_set
     remove_time_series_data(timeseries_set, cognite_client)
     cognite_client.time_series.subscriptions.delete(sub_name)
+
+
+@pytest.fixture()
+def raw_time_series(request, azure_credential, cognite_client):
+    timeseries_set = generate_raw_timeseries_set(request.param)
+    df = pd.DataFrame(timeseries_set, columns=["externalId", "timestamp", "value"])
+    # remove_time_series_data_from_fabric(azure_credential, df)
+    write_timeseries_data_to_fabric(azure_credential, df)
+    unique_external_ids = set()
+    generated_timeseries = []
+    for ts in timeseries_set:
+        if ts["externalId"] not in unique_external_ids:
+            push_time_series_to_cdf([generate_timeseries(ts["externalId"], 1)], cognite_client)
+            generated_timeseries.append(generate_timeseries(ts["externalId"], 1))
+        unique_external_ids.add(ts["externalId"])
+    yield df
+    for ts in generated_timeseries:
+        remove_time_series_data(generated_timeseries, cognite_client)
+
+    remove_time_series_data_from_fabric(azure_credential, df)

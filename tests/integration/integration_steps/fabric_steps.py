@@ -1,9 +1,13 @@
-
 from azure.identity import DefaultAzureCredential
 from deltalake import DeltaTable
 from dateutil import tz
+from pandas import DataFrame
 import pandas as pd
 from pandas.testing import assert_frame_equal
+from deltalake.writer import write_deltalake
+from deltalake.table import DeltaTable
+
+from cognite.client.data_classes import TimeSeries
 
 TIMESTAMP_COLUMN = "timestamp"
 
@@ -36,6 +40,21 @@ def assert_timeseries_data_in_fabric(external_id, data_points, timeseries_path, 
     lakehouse_dataframe = prepare_lakehouse_dataframe_for_comparison(data_points_from_lakehouse, external_id)
     test_dataframe = prepare_test_dataframe_for_comparison(data_points)
     assert_frame_equal(test_dataframe, lakehouse_dataframe, check_dtype=False)
+
+def write_timeseries_data_to_fabric(credential: DefaultAzureCredential, data_frame: DataFrame):
+    token = credential.get_token("https://storage.azure.com/.default").token
+    table_path = "abfss://40fd095c-e416-4c23-a279-2c14631c5426@msit-onelake.dfs.fabric.microsoft.com/765ff58d-4f56-420f-bf52-49e4553c39d1/Tables/cc_mtu_historic_int_test2"
+    write_deltalake(table_path, data_frame, mode="append", storage_options={"bearer_token": token, "use_fabric_endpoint": "true"})
+    return None
+
+
+def remove_time_series_data_from_fabric(credential: DefaultAzureCredential, list_of_time_series: list[TimeSeries]):
+    token = credential.get_token("https://storage.azure.com/.default").token
+    DeltaTable(
+        table_uri="abfss://40fd095c-e416-4c23-a279-2c14631c5426@msit-onelake.dfs.fabric.microsoft.com/765ff58d-4f56-420f-bf52-49e4553c39d1/Tables/cc_mtu_historic_int_test2",
+        storage_options={"bearer_token": token, "use_fabric_endpoint": "true"}
+    ).delete()
+
 
 def assert_data_model_in_fabric():
     # Assert the data model is populated in a Fabric lakehouse

@@ -89,6 +89,15 @@ def cdf_timeseries_contain_expected_timeseries(expected_timeseries: list[TimeSer
     )
 
 
+def cdf_timeseries_contain_expected_timeseries_ids(
+    expected_timeseries: list[str], retrieved_timeseries_ids: list[str]
+) -> bool:
+    return all(
+        any(ts == retrieved_timeseries_id for retrieved_timeseries_id in retrieved_timeseries_ids)
+        for ts in expected_timeseries
+    )
+
+
 def cdf_datapoints_contain_expected_datapoints(expected_data_list: list[Datapoint], retrieved_data_point_tuple: list[tuple[str, str]]) -> bool:
     return all(
         any(
@@ -109,6 +118,13 @@ def assert_time_series_in_cdf(expected_timeseries: list[TimeSeries], cognite_cli
     result = cognite_client.time_series.list(limit=-1)
 
     assert cdf_timeseries_contain_expected_timeseries(expected_timeseries, [ts.external_id for ts in result])
+
+
+def assert_time_series_in_cdf_by_id(expected_timeseries: list[str], cognite_client: CogniteClient):
+    result = cognite_client.time_series.list(limit=-1)
+
+    assert cdf_timeseries_contain_expected_timeseries_ids(expected_timeseries, [ts.external_id for ts in result])
+
 
 def remove_time_series_data(list_of_time_series: list[TimeSeries], cognite_client: CogniteClient):
     for time_series in list_of_time_series:

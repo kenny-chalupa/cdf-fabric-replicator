@@ -352,13 +352,13 @@ typing-extensions = ">=3.7.4,<5"
 
 [[package]]
 name = "cognite-sdk"
-version = "7.29.0"
+version = "7.32.1"
 description = "Cognite Python SDK"
 optional = false
 python-versions = "<4.0,>=3.8"
 files = [
-    {file = "cognite_sdk-7.29.0-py3-none-any.whl", hash = "sha256:db882336ad891517cec1faf89175e8efc9afaeba3fb7bbc77afa3645d3997962"},
-    {file = "cognite_sdk-7.29.0.tar.gz", hash = "sha256:09a39c856d67f40106e882a988911a75587a28c0880701dcaae0d7e77739a29b"},
+    {file = "cognite_sdk-7.32.1-py3-none-any.whl", hash = "sha256:7ae7d35eccf16af2fd7e85ec5f1be0e7156b1ff674bb8dacbcc8ebe58a4d9db2"},
+    {file = "cognite_sdk-7.32.1.tar.gz", hash = "sha256:6721186525a7fd65cd318b12d9a1344e36388e218e2a817de0bc1c5a745f9e45"},
 ]
 
 [package.dependencies]
@@ -470,17 +470,17 @@ files = [
 
 [[package]]
 name = "deltalake"
-version = "0.16.1"
+version = "0.16.2"
 description = "Native Delta Lake Python binding based on delta-rs with Pandas integration"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "deltalake-0.16.1-cp38-abi3-macosx_10_12_x86_64.whl", hash = "sha256:e116e59bbaff0ea29f6a4f12f9fa1c0fd6860d0a8487d6ab2e8656b614cdc1d3"},
-    {file = "deltalake-0.16.1-cp38-abi3-macosx_11_0_arm64.whl", hash = "sha256:373e225f41c3d533cab298546eba2dca508f7a3a94613fd0625b19bd1bf3e23e"},
-    {file = "deltalake-0.16.1-cp38-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d9c4fccd5b0d45445807c30a3cfd0cdceaf663795ea56a8ec90d786eee9deacc"},
-    {file = "deltalake-0.16.1-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:472901bd3efd5976bf4c485175bc828845c94c0380a9ddfc8ddef96efddbc6b0"},
-    {file = "deltalake-0.16.1-cp38-abi3-win_amd64.whl", hash = "sha256:480632bbe1ed82e745be4c43e2928fbd1f44eb66f0b4d48e3cdb03e9e15984ad"},
-    {file = "deltalake-0.16.1.tar.gz", hash = "sha256:0662aacf98e486e8a2449773d7165b5b6af8b19631912a4231ad9ddfd63fadba"},
+    {file = "deltalake-0.16.2-cp38-abi3-macosx_10_12_x86_64.whl", hash = "sha256:5afe957335cf6af00cb9d1ab5b7d1715bc9df18a8d49cc94808db7d4bba81716"},
+    {file = "deltalake-0.16.2-cp38-abi3-macosx_11_0_arm64.whl", hash = "sha256:fdb68ce8629fc66118e06c67f5c8ace7af37c380232b5e50f58bf7c10b1c7803"},
+    {file = "deltalake-0.16.2-cp38-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ca8ca49f31782259fac7e2987277ca8a8114da34fbde28f622b5b39c5049eb28"},
+    {file = "deltalake-0.16.2-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:959c378f5f462d30a33768f73081108622f67617d84b2e54abf8290941cc2ff0"},
+    {file = "deltalake-0.16.2-cp38-abi3-win_amd64.whl", hash = "sha256:8cfdf412c2d82ae352ce792d57c26d706eac8d3b9aa46357f2cdbc89ac842766"},
+    {file = "deltalake-0.16.2.tar.gz", hash = "sha256:2df55ee56df6271685a877ca5c06edb0b2f94e38177857ed1a44016314a63b50"},
 ]
 
 [package.dependencies]
@@ -1019,17 +1019,17 @@ testing = ["argcomplete", "hypothesis (>=3.56)", "mock", "nose", "requests", "xm
 
 [[package]]
 name = "pytest-mock"
-version = "3.12.0"
+version = "3.14.0"
 description = "Thin-wrapper around the mock package for easier use with pytest"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pytest-mock-3.12.0.tar.gz", hash = "sha256:31a40f038c22cad32287bb43932054451ff5583ff094bca6f675df2f8bc1a6e9"},
-    {file = "pytest_mock-3.12.0-py3-none-any.whl", hash = "sha256:0972719a7263072da3a21c7f4773069bcc7486027d7e8e1f81d98a47e701bc4f"},
+    {file = "pytest-mock-3.14.0.tar.gz", hash = "sha256:2719255a1efeceadbc056d6bf3df3d1c5015530fb40cf347c0f9afac88410bd0"},
+    {file = "pytest_mock-3.14.0-py3-none-any.whl", hash = "sha256:0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f"},
 ]
 
 [package.dependencies]
-pytest = ">=5.0"
+pytest = ">=6.2.5"
 
 [package.extras]
 dev = ["pre-commit", "pytest-asyncio", "tox"]
