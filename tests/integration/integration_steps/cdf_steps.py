@@ -79,7 +79,13 @@ def update_data_model_in_cdf():
 
 
 def compare_timestamps(timestamp1: datetime, timestamp2: datetime) -> bool:
-    return timestamp1 == timestamp2
+    timestamp1_str = timestamp1.strftime("%Y-%m-%d %H:%M:%S")
+    timestamp2_str = timestamp2.strftime("%Y-%m-%d %H:%M:%S")
+
+    print(timestamp1_str)
+    print(timestamp2_str)
+
+    return timestamp1_str == timestamp2_str
 
 
 def remove_matching_data_point(data_list: list[Datapoint], timestamp: str, value: str):
@@ -148,7 +154,7 @@ def assert_data_points_in_cdf(
     print(result)
     # result = prepare_lakehouse_dataframe_for_comparison(result, external_id)
     assert cdf_datapoints_contain_expected_datapoints(
-        expected_data_points, [(row[0], row[1][0]) for row in result.iterrows()]
+        expected_data_points, [(row[1][0], row[1][1]) for row in result.iterrows()]
     )
 
 
@@ -177,16 +183,16 @@ def cdf_datapoints_contain_expected_datapoints(
     expected_data_list: list[tuple[str, str]], retrieved_data_point_tuple: list[tuple[str, str]]
 ) -> bool:
     for expected_timestamp, expected_value in expected_data_list:
-        print("expected_timestamp: " + str(expected_timestamp))
+        print("expected_timestamp: " + str(type(expected_timestamp)))
         print("expected_value: " + str(expected_value))
-    
+
     for timestamp, value in retrieved_data_point_tuple:
-        print("timestamp: " + str(timestamp))
+        print("timestamp: " + str(type(timestamp)))
         print("value: " + str(value))
-        
+
     return all(
         any(
-            compare_timestamps(datetime(expected_timestamp), timestamp) and expected_value == value
+            compare_timestamps(expected_timestamp, timestamp) and expected_value == value
             for timestamp, value in retrieved_data_point_tuple
         )
         for expected_timestamp, expected_value in expected_data_list
@@ -196,10 +202,7 @@ def cdf_datapoints_contain_expected_datapoints(
 def assert_data_points_df_in_cdf(external_id: str, data_points: DataFrame, cognite_client: CogniteClient):
     data_points_list = []
     for _,row in data_points.iterrows():
-        print("row 1:0 - " + str(row[0]))
-        print("row 1:1 - " + str(type(row[1])))
-        print("row 1:2 - " + str(row[2]))
-        data_point = (row[1].to_pydatetime(), row[2])
+        data_point = (row[1], row[2])
 
         print(data_point)
         data_points_list.append(data_point)

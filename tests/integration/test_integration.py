@@ -46,5 +46,3 @@ def test_extractor_timeseries_service(cognite_client, raw_time_series, test_extr
     for external_id, group in raw_time_series.groupby("externalId"):
         group = prepare_test_dataframe_for_comparison(group)
         assert_data_points_df_in_cdf(external_id, group, cognite_client)
-
-    assert True
