@@ -41,17 +41,18 @@ def assert_timeseries_data_in_fabric(external_id, data_points, timeseries_path, 
     test_dataframe = prepare_test_dataframe_for_comparison(data_points)
     assert_frame_equal(test_dataframe, lakehouse_dataframe, check_dtype=False)
 
-def write_timeseries_data_to_fabric(credential: DefaultAzureCredential, data_frame: DataFrame):
+def write_timeseries_data_to_fabric(credential: DefaultAzureCredential, data_frame: DataFrame, table_path: str):
+    print(table_path)
     token = credential.get_token("https://storage.azure.com/.default").token
-    table_path = "abfss://40fd095c-e416-4c23-a279-2c14631c5426@msit-onelake.dfs.fabric.microsoft.com/765ff58d-4f56-420f-bf52-49e4553c39d1/Tables/cc_mtu_historic_int_test2"
+    table_path =table_path
     write_deltalake(table_path, data_frame, mode="append", storage_options={"bearer_token": token, "use_fabric_endpoint": "true"})
     return None
 
 
-def remove_time_series_data_from_fabric(credential: DefaultAzureCredential, list_of_time_series: list[TimeSeries]):
+def remove_time_series_data_from_fabric(credential: DefaultAzureCredential, table_path:str):
     token = credential.get_token("https://storage.azure.com/.default").token
     DeltaTable(
-        table_uri="abfss://40fd095c-e416-4c23-a279-2c14631c5426@msit-onelake.dfs.fabric.microsoft.com/765ff58d-4f56-420f-bf52-49e4553c39d1/Tables/cc_mtu_historic_int_test2",
+        table_uri= table_path,
         storage_options={"bearer_token": token, "use_fabric_endpoint": "true"}
     ).delete()
 

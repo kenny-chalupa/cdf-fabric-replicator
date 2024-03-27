@@ -32,7 +32,7 @@ def test_timeseries_data_integration_service(cognite_client, test_replicator, la
 # pytest.mark.skip("Skipping test", allow_module_level=True)
 @pytest.mark.parametrize(
     "raw_time_series",
-    [TimeSeriesGeneratorArgs(["akchalupa_test_fabcd_hist:mtu:39tic1091.pv"], 10)],
+    [TimeSeriesGeneratorArgs(["aint_test_fabcd_hist:mtu:39tic1091.pv"], 10)],
     indirect=True,
 )
 def test_extractor_timeseries_service(cognite_client, raw_time_series, test_extractor):

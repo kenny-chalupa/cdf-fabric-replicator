@@ -30,7 +30,7 @@ def test_replicator():
     os.remove("states.json")
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="session")
 def test_extractor():
     stop_event = CancellationToken()
     exatractor = CdfFabricExtractor(stop_event=stop_event)
@@ -84,12 +84,12 @@ def time_series(request, cognite_client):
     cognite_client.time_series.subscriptions.delete(sub_name)
 
 
-@pytest.fixture()
-def raw_time_series(request, azure_credential, cognite_client):
+@pytest.fixture(scope="function")
+def raw_time_series(request, azure_credential, cognite_client, test_extractor):
     timeseries_set = generate_raw_timeseries_set(request.param)
     df = pd.DataFrame(timeseries_set, columns=["externalId", "timestamp", "value"])
     # remove_time_series_data_from_fabric(azure_credential, df)
-    write_timeseries_data_to_fabric(azure_credential, df)
+    write_timeseries_data_to_fabric(azure_credential, df, test_extractor.config.source.abfss_prefix + "/" + test_extractor.config.source.raw_time_series_path)
     unique_external_ids = set()
     generated_timeseries = []
     for ts in timeseries_set:
@@ -101,4 +101,7 @@ def raw_time_series(request, azure_credential, cognite_client):
     for ts in generated_timeseries:
         remove_time_series_data(generated_timeseries, cognite_client)
 
-    remove_time_series_data_from_fabric(azure_credential, df)
+    remove_time_series_data_from_fabric(
+        azure_credential,
+        test_extractor.config.source.abfss_prefix + "/" + test_extractor.config.source.raw_time_series_path,
+    )
