@@ -1,7 +1,12 @@
 import pytest
-from integration_steps.cdf_steps import push_data_to_cdf, assert_time_series_in_cdf, assert_time_series_in_cdf_by_id, assert_data_points_in_cdf
+from integration_steps.cdf_steps import (
+    push_data_to_cdf,
+    assert_time_series_in_cdf,
+    assert_time_series_in_cdf_by_id,
+    assert_data_points_df_in_cdf,
+)
 from integration_steps.time_series_generation import TimeSeriesGeneratorArgs
-from integration_steps.fabric_steps import assert_timeseries_data_in_fabric
+from integration_steps.fabric_steps import assert_timeseries_data_in_fabric, prepare_test_dataframe_for_comparison
 from integration_steps.service_steps import run_replicator, run_extractor
 import pandas as pd
 
@@ -37,11 +42,9 @@ def test_extractor_timeseries_service(cognite_client, raw_time_series, test_extr
 
     # Assert timeseries data is populated CDF
     assert_time_series_in_cdf_by_id(raw_time_series['externalId'].unique(), cognite_client)
-    
-    for ts in raw_time_series['externalId'].unique():
-        expected_data_points = raw_time_series[raw_time_series["externalId"] == ts]
-        assert_data_points_in_cdf(ts, expected_data_points, cognite_client)
 
-    # for ts_external_id, data_points in pushed_data.items():
-    #     assert_timeseries_data_in_fabric(ts_external_id, data_points, lakehouse_timeseries_path, azure_credential)
+    for external_id, group in raw_time_series.groupby("externalId"):
+        group = prepare_test_dataframe_for_comparison(group)
+        assert_data_points_df_in_cdf(external_id, group, cognite_client)
+
     assert True
