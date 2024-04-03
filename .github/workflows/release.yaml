@@ -5,6 +5,11 @@ on:
     branches: [ main ]
 
 jobs:
+  print_variable:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print Environment Variable
+        run: echo "Environment Variable: ${{ env.KTEST_SECRET }}"
   release-to-dockerhub:
     runs-on: ubuntu-latest
     environment: 
