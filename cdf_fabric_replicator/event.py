@@ -11,6 +11,7 @@ from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config
 from cdf_fabric_replicator.metrics import Metrics
 from cognite.client.data_classes import EventList, Event
+from cognite.client.exceptions import CogniteAPIError
 from datetime import datetime
 from deltalake import DeltaTable
 
@@ -33,7 +34,11 @@ class EventsReplicator(Extractor):
     def run(self) -> None:
         self.logger.info("Run Called for Events Extractor...")
         # init/connect to destination
-        self.state_store.initialize()
+        try:
+            self.state_store.initialize()
+        except CogniteAPIError as e:
+            self.logger.critical("Error initializing state store: %s", e)
+            return
 
         self.logger.debug("Current Event Config: %s", self.config.event)
 
@@ -61,7 +66,12 @@ class EventsReplicator(Extractor):
 
                 if sleep_time > 0:
                     self.logger.info("Sleep for %.2f seconds", sleep_time)
-                    time.sleep(sleep_time)
+                    # time.sleep(sleep_time)
+                    self.stop_event.wait(sleep_time)
+            except CogniteAPIError as e:
+                self.logger.error("Error processing events: %s", e)
+                self.logger.exception(e)
+                break
             except Exception as e:
                 # Restrict to N number of retries
                 retry_count += 1
@@ -72,7 +82,7 @@ class EventsReplicator(Extractor):
                     break
                 else:
                     self.logger.info("Retrying in 5 seconds...")
-                    time.sleep(5)
+                    self.stop_event.wait(5)
                     continue
         
         self.logger.info("Stop event set. Exiting...")
@@ -97,15 +107,9 @@ class EventsReplicator(Extractor):
             if len(events_dict) > 0:
                 if isinstance(events_dict, dict):
                     events_dict = [events_dict]
-                # try:
                 self.write_events_to_lakehouse_tables(
                     events_dict, self.config.event.lakehouse_abfss_path_events
                 )
-                # except DeltaError as e:
-                #     self.logger.error(
-                #         "Error writing events to lakehouse tables: %s", e
-                #     )
-                #     continue
                 last_event = events_dict[-1]
                 self.set_event_state(self.event_state_key, last_event["createdTime"])
             else:
@@ -134,7 +138,11 @@ class EventsReplicator(Extractor):
 
     def set_event_state(self, event_state_key: str, created_time: int) -> None:
         self.state_store.set_state(external_id=event_state_key, high=created_time)
-        self.state_store.synchronize()
+        try:
+            self.state_store.synchronize()
+        except CogniteAPIError as e:
+            self.logger.error("Error synchronizing state store: %s", e)
+            raise e
         self.logger.debug("Event state set: %s", created_time)
 
     def write_events_to_lakehouse_tables(
