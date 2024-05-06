@@ -4,6 +4,7 @@ import pandas as pd
 from typing import List
 from datetime import datetime
 import pytest
+from deltalake import DeltaTable
 from unittest.mock import Mock
 from azure.identity import DefaultAzureCredential
 from cognite.client.data_classes import EventWrite
@@ -96,12 +97,12 @@ def events_path(azure_credential: DefaultAzureCredential):
 # The parameterized fixtures will be executed for each parameter combination
 @pytest.mark.parametrize(
     "event_write_list",
-    [10000,10],
+    [3000,3000,3000,3000,3000,3000,3000,3000,3000,3000],
     indirect=True,
 )
 @pytest.mark.parametrize(
     "test_event_replicator",
-    [1000,10],
+    [100],
     indirect=True,
 )  # Batch size for the replicator
 def test_events_service(
@@ -112,29 +113,6 @@ def test_events_service(
     events_dataframe,
     events_path,
 ):
-    
-    # #Best Case Senario where no duplicate data exists
-    # # Rmove existing events from test environment
-    # environment_events = cognite_client.events.list(limit=None)
-    # remove_events_from_cdf(cognite_client, environment_events.data)
-    # # Create new events
-    # current_timestamp = int(
-    #     datetime.now().timestamp() * 1000
-    # )  # Current timestamp in milliseconds
-    # events = [
-    #     EventWrite(
-    #         external_id=f"Notification_{current_timestamp + i}",
-    #         description=f"Event {i}",
-    #         start_time=current_timestamp + i,
-    #         end_time=current_timestamp + i + EVENT_DURATION,
-    #         type="Notification",
-    #         subtype="Test",
-    #     )
-    #     for i in range(3000)
-    # ]
-
-    # push_events_to_cdf(cognite_client, events, CDF_RETRIES)
-    # test_event_replicator.process_events()
     
     #Run one last time with timer to get performace metics
     
@@ -147,8 +125,18 @@ def test_events_service(
     execution_time = end_time - start_time
     print("execution_time:")
     print(execution_time)
+    
+    with open('execution_time.txt', 'a') as f:
+        f.write(str(execution_time) + '\n')
 
     # Then events will be available in fabric
     assert_events_data_in_fabric(events_path, events_dataframe, azure_credential)
+    
+    credential = DefaultAzureCredential()
+    
+    token = credential.get_token("https://storage.azure.com/.default")
+    path = "abfss://8ba03c01-f543-4580-a915-c660223eaec7@msit-onelake.dfs.fabric.microsoft.com/546c90a7-8233-4d68-9442-2511087b6cfb/Tables/events"
+    table = DeltaTable(path, storage_options={"bearer_token": token.token, "user_fabric_endpoint":"true"})
+    table.create_checkpoint()
     
     # remove_events_from_cdf(cognite_client, events)

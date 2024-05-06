@@ -66,8 +66,8 @@ class EventsReplicator_Merge(Extractor):
                 )
                 last_event = events_dict[-1]
                 
-                if random.random() < 1/3:
-                    self.set_event_state(self.event_state_key, last_event["createdTime"])
+                self.set_event_state(self.event_state_key, last_event["createdTime"])
+                    
 
     def get_events(
         self, limit: int, last_created_time: int
@@ -97,9 +97,6 @@ class EventsReplicator_Merge(Extractor):
         logging.info(f"Writing {len(events)} to '{abfss_path}' table...")
         data = pa.Table.from_pylist(events)
         dt = DeltaTable(abfss_path, storage_options={"bearer_token": token.token, "user_fabric_endpoint":"true"})
-        
-        # delta_schema = _convert_pa_schema_to_delta(source.schema)
-        # source = source.cast(delta_schema)
 
         (
         dt.merge(
