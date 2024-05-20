@@ -11,10 +11,6 @@ from cognite.client.data_classes import (
     EventWrite,
 )
 from cognite.client.exceptions import CogniteNotFoundError
-from cognite.client.data_classes import (
-    DataPointSubscriptionWrite,
-    DatapointSubscription,
-)
 from cognite.client.data_classes.data_modeling import Space, NodeApply, EdgeApply
 from cognite.client.data_classes.data_modeling.ids import DataModelId
 from cdf_fabric_replicator.config import SubscriptionsConfig
@@ -84,19 +80,6 @@ def push_data_to_cdf(
         )
     sleep(5)
     return time_series_data_points_pushed
-
-
-def create_subscription_in_cdf(
-    time_series_data: list[TimeSeries], sub_name: str, cognite_client: CogniteClient
-) -> DatapointSubscription:
-    ts_external_ids = [ts.external_id for ts in time_series_data]
-    sub = DataPointSubscriptionWrite(
-        sub_name,
-        partition_count=1,
-        time_series_ids=ts_external_ids,
-        name="Test subscription",
-    )
-    return cognite_client.time_series.subscriptions.create(sub)
 
 
 def create_data_model_in_cdf(
@@ -271,7 +254,7 @@ def delete_state_store_in_cdf(
             if row is not None:
                 cognite_client.raw.rows.delete(database, table, statename)
 
-    all_rows = cognite_client.raw.rows.list(database, table, limit=1)
+    all_rows = cognite_client.raw.rows.list(database, table)
     for row in all_rows:
         cognite_client.raw.rows.delete(database, table, row.key)
 
@@ -311,6 +294,24 @@ def push_events_to_cdf(
     return res
 
 
+def assert_subscription_created_in_cdf(
+    subscription_config: SubscriptionsConfig, cognite_client: CogniteClient
+):
+    subscription = cognite_client.time_series.subscriptions.retrieve(
+        subscription_config.external_id
+    )
+
+    assert (
+        subscription is not None
+    ), f"Subscription {subscription_config.external_id} not found in CDF"
+    assert (
+        subscription.external_id == subscription_config.external_id
+    ), f"Subscription external_id {subscription.external_id} does not match expected {subscription_config.external_id}"
+    assert (
+        subscription.partition_count == len(subscription_config.partitions)
+    ), f"Subscription partition count {subscription.partition_count} does not match expected {len(subscription_config.partitions)}"
+
+
 def confirm_events_in_cdf(
     cognite_client: CogniteClient, events: List[EventWrite], retries: int
 ):
@@ -329,4 +330,34 @@ def confirm_events_in_cdf(
 
 def remove_events_from_cdf(cognite_client: CogniteClient, events: List[EventWrite]):
     event_external_ids = [event.external_id for event in events]
-    return cognite_client.events.delete(external_id=event_external_ids)
+    return cognite_client.events.delete(
+        external_id=event_external_ids, ignore_unknown_ids=True
+    )
+
+
+def assert_file_in_cdf(
+    cognite_client: CogniteClient,
+    file_name: str,
+    abfss_prefix: str,
+    file_path: str,
+    retries: int,
+):
+    file_external_id = "/" + abfss_prefix.split("/")[-1] + f"/{file_path}/" + file_name
+    for _ in range(retries):
+        res = cognite_client.files.retrieve(external_id=file_external_id)
+        if res is not None:
+            print("File found in CDF")
+            return True
+        print(f"File not found in CDF, retrying...(attempt {_+1}/{retries})")
+        sleep(2**_)  # wait before the next retry using exponential backoff
+    return False
+
+
+def remove_file_from_cdf(
+    cognite_client: CogniteClient, file_name: str, abfss_prefix: str, file_path: str
+):
+    file_external_id = "/" + abfss_prefix.split("/")[-1] + f"/{file_path}/" + file_name
+    res = cognite_client.files.retrieve(external_id=file_external_id)
+    if res is not None:
+        return cognite_client.files.delete(external_id=file_external_id)
+    return None

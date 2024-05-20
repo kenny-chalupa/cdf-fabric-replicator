@@ -1,4 +1,4 @@
-import time
+import logging
 
 from urllib.parse import urlparse
 
@@ -13,7 +13,7 @@ from cognite.client.data_classes import (
     FileMetadata,
     TimeSeriesWrite,
 )
-from cognite.client.exceptions import CogniteNotFoundError
+from cognite.client.exceptions import CogniteNotFoundError, CogniteAPIError
 
 from cognite.extractorutils import Extractor
 from cognite.extractorutils.base import CancellationToken
@@ -24,37 +24,47 @@ import pandas as pd
 
 from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config
+from cdf_fabric_replicator.metrics import Metrics
 
 
 class CdfFabricExtractor(Extractor[Config]):
     def __init__(
-        self, stop_event: CancellationToken, name: str = "cdf_fabric_extractor"
+        self,
+        metrics: Metrics,
+        stop_event: CancellationToken,
+        name: str = "cdf_fabric_extractor",
     ) -> None:
         super().__init__(
             name=name,
             description="CDF Fabric Extractor",
             config_class=Config,
+            metrics=metrics,
             version=__version__,
         )
+        self.metrics = metrics
         self.azure_credential = DefaultAzureCredential()
         self.stop_event = stop_event
+        self.logger = logging.getLogger(self.name)
 
     def run(self) -> None:
         self.config = self.get_current_config()
         self.client = self.config.cognite.get_cognite_client("cdf-fabric-extractor")
         self.state_store = self.get_current_statestore()
         self.state_store.initialize()
+
+        if not self.config.source:
+            self.logger.error("No source path or directory provided")
+            return
+
         self.data_set_id = (
             int(self.config.source.data_set_id)
             if self.config.source.data_set_id
             else None
         )
 
-        if not self.config.source:
-            self.logger.error("No source path or directory provided")
-            return
+        self.logger.debug(f"Current Extractor Config: {self.config.extractor}")
 
-        while self.stop_event.is_set() is False:
+        while not self.stop_event.is_set():
             token = self.azure_credential.get_token(
                 "https://storage.azure.com/.default"
             ).token
@@ -88,14 +98,36 @@ class CdfFabricExtractor(Extractor[Config]):
                     self.config.source.abfss_prefix + "/" + self.config.source.file_path
                 )
 
-            time.sleep(5)
+            if self.config.source.raw_tables:
+                for path in self.config.source.raw_tables:
+                    state_id = f"{path}-state"
+                    self.write_raw_tables_to_cdf(
+                        self.config.source.abfss_prefix + "/" + path.raw_path,
+                        token=token,
+                        state_id=state_id,
+                        table_name=path.table_name,
+                        db_name=path.db_name,
+                    )
+
+            self.logger.debug("Sleep for 5 seconds")
+            self.stop_event.wait(5)
+
+        self.logger.info("Stop event set. Exiting...")
 
     def get_asset_ids(self, asset_external_ids: list) -> list:
         asset_ids = []
         for external_id in asset_external_ids:
-            asset = self.client.assets.retrieve(external_id=external_id)
-            if asset:
-                asset_ids.append(asset.id)
+            try:
+                self.logger.debug(f"Retrieving asset with external id {external_id}")
+                asset = self.client.assets.retrieve(external_id=external_id)
+                if asset:
+                    asset_ids.append(asset.id)
+            except CogniteNotFoundError as e:
+                self.logger.error(f"Asset with external id {external_id} not found")
+                raise e
+            except CogniteAPIError as e:
+                self.logger.error(f"Error while retrieving asset: {e}")
+                raise e
 
         return asset_ids
 
@@ -148,15 +180,19 @@ class CdfFabricExtractor(Extractor[Config]):
 
         created_time = int(file.creation_time.timestamp() * 1000)
         modified_time = int(file.last_modified.timestamp() * 1000)
-        return self.cognite_client.files.upload_bytes(
-            content=content,
-            name=file_name,
-            external_id=file.name,
-            data_set_id=self.data_set_id,
-            source_created_time=created_time,
-            source_modified_time=modified_time,
-            overwrite=True,
-        )
+        try:
+            return self.cognite_client.files.upload_bytes(
+                content=content,
+                name=file_name,
+                external_id=file.name,
+                data_set_id=self.data_set_id,
+                source_created_time=created_time,
+                source_modified_time=modified_time,
+                overwrite=True,
+            )
+        except CogniteAPIError as e:
+            self.logger.error(f"Error while uploading file to CDF: {e}")
+            raise e
 
     def write_time_series_to_cdf(self, data_frame: DataFrame) -> None:
         external_ids = data_frame["externalId"].unique()
@@ -196,6 +232,11 @@ class CdfFabricExtractor(Extractor[Config]):
                                 data_set_id=self.data_set_id,
                             )
                         )
+                except CogniteAPIError as e:
+                    self.logger.error(
+                        f"Error while writing time series data to CDF: {e}"
+                    )
+                    raise e
 
                 self.set_state(state_id, str(latest_process_time))
 
@@ -207,10 +248,39 @@ class CdfFabricExtractor(Extractor[Config]):
         if str(self.state_store.get_state(state_id)[0]) != str(len(df)):
             events = self.get_events(df)
 
-            self.client.events.upsert(events)
+            try:
+                self.client.events.upsert(events)
+            except CogniteAPIError as e:
+                self.logger.error(f"Error while writing event data to CDF: {e}")
+                raise e
+
             self.run_extraction_pipeline(status="success")
 
             self.set_state(state_id, str(len(df)))
+
+    def write_raw_tables_to_cdf(
+        self, file_path: str, token: str, state_id: str, table_name: str, db_name: str
+    ) -> None:
+        df = self.convert_lakehouse_data_to_df(file_path, token)
+
+        if str(self.state_store.get_state(state_id)[0]) != str(len(df)):
+            try:
+                self.client.raw.rows.insert_dataframe(
+                    db_name=db_name,
+                    table_name=table_name,
+                    dataframe=df,
+                    ensure_parent=True,
+                )
+            except CogniteAPIError as e:
+                self.logger.error(f"Error while writing raw data to CDF: {e}")
+                self.run_extraction_pipeline(status="failure")
+
+                raise e
+
+            self.run_extraction_pipeline(status="success")
+            self.set_state(state_id, str(len(df)))
+        else:
+            self.run_extraction_pipeline(status="seen")
 
     def set_state(self, state_id: str, value: str) -> None:
         self.state_store.set_state(state_id, value)
@@ -235,21 +305,31 @@ class CdfFabricExtractor(Extractor[Config]):
         return events
 
     def convert_lakehouse_data_to_df(self, file_path: str, token: str) -> DataFrame:
-        dt = DeltaTable(
-            file_path,
-            storage_options={"bearer_token": token, "user_fabric_endpoint": "true"},
-        )
-        return dt.to_pandas()
+        try:
+            dt = DeltaTable(
+                file_path,
+                storage_options={"bearer_token": token, "user_fabric_endpoint": "true"},
+            )
+            return dt.to_pandas()
+        except Exception as e:
+            self.logger.error(
+                f"Error while converting lakehouse data to DataFrame: {e}"
+            )
+            raise e
 
     def run_extraction_pipeline(
         self, status: Literal["success", "failure", "seen"]
     ) -> None:
         if self.config.cognite.extraction_pipeline:
-            self.cognite_client.extraction_pipelines.runs.create(
-                ExtractionPipelineRunWrite(
-                    status=status,
-                    extpipe_external_id=str(
-                        self.config.cognite.extraction_pipeline.external_id
-                    ),
+            try:
+                self.cognite_client.extraction_pipelines.runs.create(
+                    ExtractionPipelineRunWrite(
+                        status=status,
+                        extpipe_external_id=str(
+                            self.config.cognite.extraction_pipeline.external_id
+                        ),
+                    )
                 )
-            )
+            except CogniteAPIError as e:
+                self.logger.error(f"Error while running extraction pipeline: {e}")
+                raise e

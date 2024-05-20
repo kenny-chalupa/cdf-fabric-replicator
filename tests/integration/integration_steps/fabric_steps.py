@@ -4,10 +4,13 @@ from deltalake import DeltaTable
 import pandas as pd
 from pandas import DataFrame
 from pandas.testing import assert_frame_equal
+from urllib.parse import urlparse
 from deltalake.writer import write_deltalake
 from deltalake.exceptions import TableNotFoundError
+from azure.storage.filedatalake import DataLakeServiceClient
 
 TIMESTAMP_COLUMN = "timestamp"
+DATA_MODEL_TIMESTAMP_COLUMNS = ["lastUpdatedTime", "createdTime"]
 EVENT_CDF_COLUMNS = ["id", "createdTime", "lastUpdatedTime"]
 EVENT_SORT_COLUMNS = "startTime"
 
@@ -108,14 +111,33 @@ def assert_timeseries_data_in_fabric(
     assert_frame_equal(test_dataframe, lakehouse_dataframe, check_dtype=False)
 
 
-def assert_data_model_in_fabric():
+def assert_data_model_instances_in_fabric(
+    instance_table_paths: list,
+    instance_dataframes: dict[str, pd.DataFrame],
+    azure_credential: DefaultAzureCredential,
+):
     # Assert the data model is populated in a Fabric lakehouse
-    pass
+    for path in instance_table_paths:
+        delta_table = get_ts_delta_table(azure_credential, path)
+        lakehouse_dataframe = delta_table.to_pandas()
+        lakehouse_dataframe = lakehouse_dataframe.drop(
+            columns=DATA_MODEL_TIMESTAMP_COLUMNS
+        )
+        table_name = path.split("Tables/")[1]
+        assert_frame_equal(
+            instance_dataframes[table_name], lakehouse_dataframe, check_dtype=False
+        )
 
 
-def assert_data_model_update():
-    # Assert the data model changes including versions and last updated timestamps are propagated to a Fabric lakehouse
-    pass
+def assert_data_model_instances_update(
+    update_dataframe: tuple, azure_credential: DefaultAzureCredential
+):
+    # Assert the data model changes including versions are propagated to a Fabric lakehouse
+    path = lakehouse_table_name(update_dataframe[0])
+    delta_table = get_ts_delta_table(azure_credential, path)
+    lakehouse_dataframe = delta_table.to_pandas()
+    lakehouse_dataframe = lakehouse_dataframe.drop(columns=DATA_MODEL_TIMESTAMP_COLUMNS)
+    assert_frame_equal(update_dataframe[1], lakehouse_dataframe, check_dtype=False)
 
 
 def assert_events_data_in_fabric(
@@ -140,3 +162,65 @@ def assert_events_data_in_fabric(
 
     # Assert that the two DataFrames are equal
     assert_frame_equal(events_dataframe, events_from_lakehouse, check_dtype=False)
+
+
+def parse_abfss_url(url: str) -> tuple[str, str, str]:
+    parsed_url = urlparse(url)
+
+    if "@" not in parsed_url.netloc or "." not in parsed_url.netloc:
+        raise ValueError(
+            "URL is not in the expected format.  Expected format is abfss://<workspace>@onelake.dfs.fabric.microsoft.com/<lakehouse>"
+        )
+
+    container_id = parsed_url.netloc.split("@")[0]
+    account_name = parsed_url.netloc.split("@")[1].split(".")[0]
+    file_path = parsed_url.path
+
+    return container_id, account_name, file_path
+
+
+def get_lakehouse_file_client(
+    abfss_prefix: str,
+    table_name: str,
+    file_name: str,
+    credential: DefaultAzureCredential,
+):
+    workspace_name, account_name, lakehouse_file_path = parse_abfss_url(abfss_prefix)
+    lakehouse_file_path = lakehouse_file_path + "/" + table_name + "/"
+
+    service_client = DataLakeServiceClient(
+        f"https://{account_name}.dfs.fabric.microsoft.com", credential=credential
+    )
+    file_system_client = service_client.get_file_system_client(workspace_name)
+    directory_client = file_system_client.get_directory_client(lakehouse_file_path)
+    file_client = directory_client.get_file_client(file_name)
+    return file_client
+
+
+def upload_file_to_lakehouse(
+    file_name: str,
+    local_file_path: str,
+    abfss_prefix: str,
+    table_name: str,
+    credential: DefaultAzureCredential,
+):
+    file_client = get_lakehouse_file_client(
+        abfss_prefix, table_name, file_name, credential
+    )
+    with open(file=local_file_path, mode="rb") as data:
+        file_client.upload_data(data, overwrite=True)
+
+
+def remove_file_from_lakehouse(
+    file_name: str,
+    abfss_prefix: str,
+    table_name: str,
+    credential: DefaultAzureCredential,
+):
+    file_client = get_lakehouse_file_client(
+        abfss_prefix, table_name, file_name, credential
+    )
+    try:
+        file_client.delete_file()
+    except Exception as e:
+        print(f"Error deleting file: {e}")

@@ -6,6 +6,7 @@ from cognite.extractorutils.base import Extractor
 from azure.identity import DefaultAzureCredential
 from deltalake import write_deltalake
 from deltalake.exceptions import DeltaError
+from deltalake.exceptions import DeltaError
 import pyarrow as pa
 from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config
@@ -29,6 +30,7 @@ class EventsReplicator(Extractor):
         )
         self.azure_credential = DefaultAzureCredential()
         self.event_state_key = "event_state"
+        self.stop_event = stop_event
         self.logger = logging.getLogger(self.name)
 
     def run(self) -> None:
@@ -91,6 +93,7 @@ class EventsReplicator(Extractor):
         limit = self.config.event.batch_size
         last_created_time = self.get_event_state(self.event_state_key)
 
+
         if last_created_time is None:
             last_created_time = 0
             self.logger.debug("No last created time found.")
@@ -107,9 +110,13 @@ class EventsReplicator(Extractor):
             if len(events_dict) > 0:
                 if isinstance(events_dict, dict):
                     events_dict = [events_dict]
-                self.write_events_to_lakehouse_tables(
-                    events_dict, self.config.event.lakehouse_abfss_path_events
-                )
+                try:
+                    self.write_events_to_lakehouse_tables(
+                        events_dict, self.config.event.lakehouse_abfss_path_events
+                    )
+                except DeltaError as e:
+                    self.logger.error(f"Error writing events to lakehouse tables: {e}")
+                    raise e
                 last_event = events_dict[-1]
                 self.set_event_state(self.event_state_key, last_event["createdTime"])
             else:
